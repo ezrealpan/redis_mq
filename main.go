@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
+	"runtime"
 	"time"
 
 	"ezreal.com.cn/redis_mq/redis_mq"
@@ -15,6 +16,7 @@ import (
 
 var prdouceTimes int64
 var consumerTime int64
+var pool *redis_mq.Pool
 
 func main() {
 	// 1 use client
@@ -47,10 +49,11 @@ func main() {
 		panic(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	pool = redis_mq.NewPool(10)
 
 	topicName := "testTopic1"
 	// normal
-	consumer := redis_mq.NewMQConsumer(ctx, client, topicName)
+	consumer := redis_mq.NewMQConsumer(ctx, client, topicName, pool)
 	// use LBPop
 	//consumer := redis_mq.NewSimpleMQConsumer(ctx, client, topicName, redis_mq.UseBLPop(true), redis_mq.NewRateLimitPeriod(time.Millisecond*100))
 	consumer.SetHandler(&MyHandler{})
@@ -66,12 +69,12 @@ func main() {
 				return
 			case <-ticker.C:
 				msg := &MyMsg{
-					Name: fmt.Sprintf("name_%d", rand.Int()),
+					Name: fmt.Sprintf("name_%v", time.Now()),
 					Age:  rand.Intn(20),
 				}
 				body, _ := json.Marshal(msg)
 				prdouceTimes++
-				fmt.Println("produceTimes:", prdouceTimes)
+				//fmt.Println("produceTimes:", prdouceTimes)
 				if err := producer.Publish(topicName, body); err != nil {
 					panic(err)
 				}
@@ -82,7 +85,8 @@ func main() {
 
 		}
 	}()
-
+	pool.Wait()
+	fmt.Println("存在的goroutine数量：", runtime.NumGoroutine())
 	stopCh := make(chan os.Signal)
 	signal.Notify(stopCh, os.Interrupt)
 	<-stopCh
@@ -103,8 +107,10 @@ func (*MyHandler) HandleMessage(m *redis_mq.Message) {
 		fmt.Printf("handle message error: %#v \n", err)
 		return
 	}
-	time.Sleep(10 * time.Second)
+	//time.Sleep(10 * time.Second)
 	consumerTime++
-	//fmt.Printf("receive msg: %#v \n", *revMsg)
-	fmt.Println("consumTimes:", consumerTime)
+	fmt.Printf("receive msg: %#v \n", *revMsg)
+	//fmt.Println("consumTimes:", consumerTime)
+	fmt.Println("存在的goroutine数量：", runtime.NumGoroutine())
+	pool.Done()
 }

@@ -23,6 +23,7 @@ type consumer struct {
 	handler         Handler
 	rateLimitPeriod time.Duration
 	options         ConsumerOptions
+	pool            *Pool
 	_               struct{}
 }
 
@@ -53,11 +54,12 @@ func UseBLPop(u bool) ConsumerOption {
 type Consumer = *consumer
 
 // NewMQConsumer ...
-func NewMQConsumer(ctx context.Context, redisCmd redis.Cmdable, topicName string, opts ...ConsumerOption) Consumer {
+func NewMQConsumer(ctx context.Context, redisCmd redis.Cmdable, topicName string, pool *Pool, opts ...ConsumerOption) Consumer {
 	consumer := &consumer{
 		redisCmd:  redisCmd,
 		ctx:       ctx,
 		topicName: topicName,
+		pool:      pool,
 	}
 	for _, o := range opts {
 		o(&consumer.options)
@@ -117,7 +119,10 @@ func (s *consumer) startGetListMessage() {
 				msg := &Message{}
 				json.Unmarshal(revBody, msg)
 				if s.handler != nil {
-					s.handler.HandleMessage(msg)
+					s.pool.Add(1)
+					go func() {
+						s.handler.HandleMessage(msg)
+					}()
 				}
 			}
 		}
