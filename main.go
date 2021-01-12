@@ -10,13 +10,14 @@ import (
 	"runtime"
 	"time"
 
+	"ezreal.com.cn/redis_mq/pool"
 	"ezreal.com.cn/redis_mq/redis_mq"
 	"github.com/go-redis/redis"
 )
 
 var prdouceTimes int64
 var consumerTime int64
-var pool *redis_mq.Pool
+var Pool *pool.Pool
 
 func main() {
 	// 1 use client
@@ -49,11 +50,11 @@ func main() {
 		panic(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	pool = redis_mq.NewPool(10)
+	Pool = pool.NewPool(10)
 
 	topicName := "testTopic1"
 	// normal
-	consumer := redis_mq.NewMQConsumer(ctx, client, topicName, pool)
+	consumer := redis_mq.NewMQConsumer(ctx, client, topicName, Pool)
 	// use LBPop
 	//consumer := redis_mq.NewSimpleMQConsumer(ctx, client, topicName, redis_mq.UseBLPop(true), redis_mq.NewRateLimitPeriod(time.Millisecond*100))
 	consumer.SetHandler(&MyHandler{})
@@ -85,7 +86,7 @@ func main() {
 
 		}
 	}()
-	pool.Wait()
+	Pool.Wait()
 	fmt.Println("存在的goroutine数量：", runtime.NumGoroutine())
 	stopCh := make(chan os.Signal)
 	signal.Notify(stopCh, os.Interrupt)
@@ -112,5 +113,5 @@ func (*MyHandler) HandleMessage(m *redis_mq.Message) {
 	fmt.Printf("receive msg: %#v \n", *revMsg)
 	//fmt.Println("consumTimes:", consumerTime)
 	fmt.Println("存在的goroutine数量：", runtime.NumGoroutine())
-	pool.Done()
+	Pool.Done()
 }

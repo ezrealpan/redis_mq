@@ -1,7 +1,8 @@
-package redis_mq
+package pool
 
 import "sync"
 
+// Pool ...
 type Pool struct {
 	queue chan int
 	wg    *sync.WaitGroup
@@ -18,6 +19,7 @@ func NewPool(size int) *Pool {
 	}
 }
 
+// Add ...
 func (p *Pool) Add(delta int) {
 	for i := 0; i < delta; i++ {
 		p.queue <- 1

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"ezreal.com.cn/redis_mq/pool"
 	"github.com/go-redis/redis"
 )
 
@@ -23,7 +24,7 @@ type consumer struct {
 	handler         Handler
 	rateLimitPeriod time.Duration
 	options         ConsumerOptions
-	pool            *Pool
+	pool            *pool.Pool
 	_               struct{}
 }
 
@@ -54,7 +55,7 @@ func UseBLPop(u bool) ConsumerOption {
 type Consumer = *consumer
 
 // NewMQConsumer ...
-func NewMQConsumer(ctx context.Context, redisCmd redis.Cmdable, topicName string, pool *Pool, opts ...ConsumerOption) Consumer {
+func NewMQConsumer(ctx context.Context, redisCmd redis.Cmdable, topicName string, pool *pool.Pool, opts ...ConsumerOption) Consumer {
 	consumer := &consumer{
 		redisCmd:  redisCmd,
 		ctx:       ctx,
